@@ -1,0 +1,16 @@
+path:
+  - ./bin
+  - ./bin/console
+  - ./bin/phpunit
+  - ./config
+  - ./src
+  - ./tools/php-cs-fixer/.php-cs-fixer.php
+jobs: 10
+extensions:
+  - php
+exclude:
+  - var
+  - vendor
+warning: true
+memory-limit: -1
+cache: ./tools/phplint/cache

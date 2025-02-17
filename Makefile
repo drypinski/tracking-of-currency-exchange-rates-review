@@ -11,9 +11,9 @@ restart: down up
 check: lint test
 
 lint: api-lint
+lint-fix: api-cs-fix
 
 test: api-test
-test-coverage: api-test-coverage
 test-functional: api-test-functional
 test-unit: api-test-unit
 
@@ -92,9 +92,6 @@ api-test-functional:
 
 api-test-unit:
 	docker compose run --rm api-php-cli composer test -- --testsuite=unit
-
-api-test-coverage:
-	docker compose run --rm api-php-cli composer test-coverage -- --testsuite=unit
 
 api-run-php:
 	docker compose run --rm api-php-cli bash
