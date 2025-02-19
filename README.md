@@ -6,7 +6,7 @@
 ### Add your API key from: https://app.freecurrencyapi.com/dashboard
 
 ```shell
-echo "FREE_CURRENCY_API_KEY=your-secret-key-value" >> ./api/.emv.local
+echo "FREE_CURRENCY_API_KEY=your-secret-key-value" >> ./api/.env.local
 ```
 
 ### Init project
