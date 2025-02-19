@@ -1,0 +1,7 @@
+framework:
+    http_client:
+        scoped_clients:
+            freecurrencyapi.client:
+                base_uri: 'https://api.freecurrencyapi.com'
+                query:
+                    apikey: '%env(string::FREE_CURRENCY_API_KEY)%'

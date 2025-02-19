@@ -8,6 +8,11 @@ doctrine:
 
         profiling_collect_backtrace: '%kernel.debug%'
         use_savepoints: true
+        types:
+            !php/const App\Entity\Currency\Field\IdType::NAME: App\Entity\Currency\Field\IdType
+            !php/const App\Entity\Currency\Field\CodeType::NAME: App\Entity\Currency\Field\CodeType
+            !php/const App\Entity\ExchangeRate\Field\IdType::NAME: App\Entity\ExchangeRate\Field\IdType
+            !php/const App\Entity\Pair\Field\IdType::NAME: App\Entity\Pair\Field\IdType
     orm:
         auto_generate_proxy_classes: true
         enable_lazy_ghost_objects: true

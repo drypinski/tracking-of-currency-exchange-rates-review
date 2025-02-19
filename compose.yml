@@ -1,114 +1,182 @@
 services:
-  traefik:
-    image: traefik:2.9
-    command:
-      --providers.docker=true
-      --providers.docker.watch=true
-      --providers.docker.swarmMode=false
-      --providers.docker.exposedByDefault=false
-      --entryPoints.http.address=:80
-      --api
-      --api.dashboard=true
-      --api.insecure=true
-    ports:
-      - 80:80
-    networks:
-      - tocer-dev
-      - default
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=tocer-dev
-      - traefik.http.routers.traefik.entryPoints=http
-      - traefik.http.routers.traefik.rule=Host(`traefik.tocer.localhost`)
-      - traefik.http.routers.traefik.service=api@internal
-      - traefik.http.services.traefik.loadBalancer.server.port=80
+    traefik:
+        image: traefik:2.9
+        command:
+            --providers.docker=true
+            --providers.docker.watch=true
+            --providers.docker.swarmMode=false
+            --providers.docker.exposedByDefault=false
+            --entryPoints.http.address=:80
+            --api
+            --api.dashboard=true
+            --api.insecure=true
+        ports:
+            - 80:80
+        networks:
+            - tocer-dev
+            - default
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        labels:
+            - traefik.enable=true
+            - traefik.docker.network=tocer-dev
+            - traefik.http.routers.traefik.entryPoints=http
+            - traefik.http.routers.traefik.rule=Host(`traefik.tocer.localhost`)
+            - traefik.http.routers.traefik.service=api@internal
+            - traefik.http.services.traefik.loadBalancer.server.port=80
 
-  redis:
-    #container_name: redis
-    image: redis:alpine
-    ports:
-      - "63791:6379"
+    # ===============================
+    # ===== API =====================
+    # ===============================
+    api-redis:
+        image: redis:alpine
+        ports:
+            - "63791:6379"
+        volumes:
+            - api-redis:/data
+        command:
+            - 'redis-server'
+            - '--databases 2'
+            - '--save 900 1'
+            - '--save 300 10'
+            - '--save 60 10000'
+            - '--requirepass redis-secret-paSSword'
 
-  # ===============================
-  # ===== API =====================
-  # ===============================
-  api-db:
-    image: postgres:16.4-alpine
-    environment:
-      POSTGRES_USER: api
-      POSTGRES_PASSWORD: api
-      POSTGRES_DB: api
-    volumes:
-      - api-db:/var/lib/postgresql/data:Z
-    ports:
-      - "54321:5432"
+    api-db:
+        image: postgres:16.4-alpine
+        environment:
+            POSTGRES_USER: api
+            POSTGRES_PASSWORD: api
+            POSTGRES_DB: api
+        volumes:
+            - api-db:/var/lib/postgresql/data:Z
+        ports:
+            - "54321:5432"
 
-  api:
-    image: nginx:1.26.2-alpine
-    working_dir: /app
-    volumes:
-      - ./api:/app:ro
-      - ./docker/dev/api/nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./docker/dev/api/nginx/nginxconfig.io:/etc/nginx/nginxconfig.io:ro
-    networks:
-      - tocer-dev
-      - default
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=tocer-dev
-      - traefik.http.routers.api.entryPoints=http
-      - traefik.http.routers.api.rule=Host(`api.tocer.localhost`)
-      - traefik.http.services.api.loadBalancer.server.port=80
-    depends_on:
-      - api-php-fpm
+    api:
+        image: nginx:1.26.2-alpine
+        working_dir: /app
+        volumes:
+            - ./api:/app:ro
+            - ./docker/dev/api/nginx/conf.d:/etc/nginx/conf.d:ro
+            - ./docker/dev/api/nginx/nginxconfig.io:/etc/nginx/nginxconfig.io:ro
+        networks:
+            - tocer-dev
+            - default
+        labels:
+            - traefik.enable=true
+            - traefik.docker.network=tocer-dev
+            - traefik.http.routers.api.entryPoints=http
+            - traefik.http.routers.api.rule=Host(`api.tocer.localhost`)
+            - traefik.http.services.api.loadBalancer.server.port=80
+        depends_on:
+            - api-php-fpm
 
-  api-php-fpm:
-    build:
-      context: docker/dev/api
-      dockerfile: php-fpm/83.dockerfile
-      args:
-        UUID: ${UUID:-1000}
-        UGID: ${UGID:-1000}
-    environment:
-      UUID: ${UUID:-1000}
-      UGID: ${UGID:-1000}
-      APP_ENV: dev
-      APP_DEBUG: 1
-      # .env
-      DATABASE_URL: postgresql://api:api@api-db/api?serverVersion=16&charset=utf8
-      REDIS_DSN: redis://redis
-    volumes:
-      - ./api:/app
-    depends_on:
-      - api-db
-      - redis
+    api-php-fpm:
+        build:
+            context: docker/dev/api
+            dockerfile: php-fpm/83.dockerfile
+            args:
+                UUID: ${UUID:-1000}
+                UGID: ${UGID:-1000}
+        environment:
+            UUID: ${UUID:-1000}
+            UGID: ${UGID:-1000}
+            APP_ENV: dev
+            APP_DEBUG: 1
+            # .env
+            DATABASE_URL: postgresql://api:api@api-db/api?serverVersion=16&charset=utf8
+            REDIS_HOST: api-redis
+            REDIS_PASSWORD: redis-secret-paSSword
+            MESSENGER_TRANSPORT_DSN: redis://redis-secret-paSSword@api-redis/messages
+            EXCHANGE_RATE_LIFETIME: 60
+        volumes:
+            - ./api:/app
+        depends_on:
+            - api-db
+            - api-redis
 
-  api-php-cli:
-    build:
-      context: docker/dev/api
-      dockerfile: php-cli/83.dockerfile
-      args:
-        UUID: ${UUID:-1000}
-        UGID: ${UGID:-1000}
-    environment:
-      UUID: ${UUID:-1000}
-      UGID: ${UGID:-1000}
-      APP_ENV: dev
-      APP_DEBUG: 1
-      # .env
-      DATABASE_URL: postgresql://api:api@api-db/api?serverVersion=16&charset=utf8
-      REDIS_DSN: redis://redis
-    volumes:
-      - ./api:/app
-    depends_on:
-      - api-db
-      - redis
+    api-php-cli:
+        build:
+            context: docker/dev/api
+            dockerfile: php-cli/83.dockerfile
+            args:
+                UUID: ${UUID:-1000}
+                UGID: ${UGID:-1000}
+        environment:
+            UUID: ${UUID:-1000}
+            UGID: ${UGID:-1000}
+            APP_ENV: dev
+            APP_DEBUG: 1
+            # .env
+            DATABASE_URL: postgresql://api:api@api-db/api?serverVersion=16&charset=utf8
+            REDIS_HOST: api-redis
+            REDIS_PASSWORD: redis-secret-paSSword
+            MESSENGER_TRANSPORT_DSN: redis://redis-secret-paSSword@api-redis/messages
+            EXCHANGE_RATE_LIFETIME: 60
+        volumes:
+            - ./api:/app
+        depends_on:
+            - api-db
+            - api-redis
+
+    api-queue-worker:
+        build:
+            context: docker/dev/api
+            dockerfile: php-cli/83.dockerfile
+            args:
+                UUID: ${UUID:-1000}
+                UGID: ${UGID:-1000}
+        command: sh -c "sleep 10 && php bin/console messenger:consume async -v"
+        environment:
+            UUID: ${UUID:-1000}
+            UGID: ${UGID:-1000}
+            APP_ENV: dev
+            APP_DEBUG: 1
+            # .env
+            DATABASE_URL: postgresql://api:api@api-db/api?serverVersion=16&charset=utf8
+            REDIS_HOST: api-redis
+            REDIS_PASSWORD: redis-secret-paSSword
+            MESSENGER_TRANSPORT_DSN: redis://redis-secret-paSSword@api-redis/messages
+            EXCHANGE_RATE_LIFETIME: 60
+        volumes:
+            - ./api:/app
+        restart: always
+        depends_on:
+            - api-db
+            - api-redis
+
+    api-schedule-worker:
+        build:
+            context: docker/dev/api
+            dockerfile: php-cli/83.dockerfile
+            args:
+                UUID: ${UUID:-1000}
+                UGID: ${UGID:-1000}
+        command: sh -c "sleep 10 && php bin/console messenger:consume scheduler_default -v"
+        environment:
+            UUID: ${UUID:-1000}
+            UGID: ${UGID:-1000}
+            APP_ENV: dev
+            APP_DEBUG: 1
+            # .env
+            DATABASE_URL: postgresql://api:api@api-db/api?serverVersion=16&charset=utf8
+            REDIS_HOST: api-redis
+            REDIS_PASSWORD: redis-secret-paSSword
+            MESSENGER_TRANSPORT_DSN: redis://redis-secret-paSSword@api-redis/messages
+            EXCHANGE_RATE_LIFETIME: 60
+        volumes:
+            - ./api:/app
+        restart: always
+        depends_on:
+            - api-db
+            - api-redis
+            - api-queue-worker
 
 networks:
-  tocer-dev:
-    name: tocer-dev
+    tocer-dev:
+        name: tocer-dev
 
 volumes:
-  api-db:
+    api-db:
+    api-redis:

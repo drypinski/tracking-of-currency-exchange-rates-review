@@ -48,7 +48,7 @@ tools-install:
 # ====================
 # === API ============
 # ====================
-api-init: api-composer-install api-wait-db api-migrations-migrate api-cache-clear
+api-init: api-composer-install api-wait-db api-migrations-migrate api-fixtures-load api-cache-clear
 
 api-clear:
 	docker run --rm -v ${PWD}/api:/app -w /app alpine sh -c 'rm -rf vendor/* var/*'
@@ -64,6 +64,9 @@ api-wait-db:
 
 api-migrations-migrate:
 	docker compose run --rm api-php-cli sh -c 'bin/console doctrine:migrations:migrate --no-interaction'
+
+api-fixtures-load:
+	docker compose run --rm api-php-cli sh -c 'bin/console doctrine:fixtures:load --no-interaction'
 
 api-cache-clear:
 	docker compose run --rm api-php-cli sh -c 'bin/console cache:clear && bin/console cache:warmup'
